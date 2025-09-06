@@ -1,15 +1,13 @@
 {
-  "name": "insta-puppeteer",
+  "name": "insta-scraper",
   "version": "1.0.0",
-  "description": "Test Puppeteer for Instagram",
-  "main": "insta.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node insta.js"
-  },
-  "engines": {
-    "node": ">=22.0.0"
+    "start": "node server.js"
   },
   "dependencies": {
-    "puppeteer": "^21.4.0"
+    "express": "^4.19.2",
+    "puppeteer-core": "^21.4.0",
+    "chromium": "^3.0.2"
   }
 }
