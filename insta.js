@@ -10,7 +10,7 @@ async function fetchInstagramMedia(instaUrl) {
         await page.goto(instaUrl, { waitUntil: 'networkidle2' });
 
         // Video varsa video URL’sini al
-        const videoUrl = await page.evaluate(() => {
+        const mediaUrl = await page.evaluate(() => {
             const videoEl = document.querySelector('video');
             if (videoEl) return videoEl.src;
 
@@ -20,7 +20,7 @@ async function fetchInstagramMedia(instaUrl) {
             return null;
         });
 
-        return videoUrl;
+        return mediaUrl;
     } catch (err) {
         console.error('Puppeteer Instagram fetch error:', err);
         return null;
@@ -28,5 +28,9 @@ async function fetchInstagramMedia(instaUrl) {
         if (browser) await browser.close();
     }
 }
-const mediaUrl = await fetchInstagramMedia('https://www.instagram.com/reel/DOEra5KjrK5/');
-console.log(mediaUrl); // Direkt mp4 URL veya img URL
+
+// IIFE ile en üstte await kullanımı
+(async () => {
+    const mediaUrl = await fetchInstagramMedia('https://www.instagram.com/reel/DOEra5KjrK5/');
+    console.log(mediaUrl); // Direkt mp4 URL veya img URL
+})();
