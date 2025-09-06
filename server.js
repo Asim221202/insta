@@ -1,32 +1,28 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
+const chromium = require("@sparticuz/chromium"); // Render için optimize edilmiş chromium
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Puppeteer ile Instagram'dan medya URL çekme
 async function fetchInstagramMedia(instaUrl) {
   let browser;
   try {
     browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
+
     const page = await browser.newPage();
 
-    // Instagram bot algılamasın diye User-Agent ekle
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    );
-
-    // Sayfaya git (timeout yükseltilmiş + networkidle2 yerine domcontentloaded)
+    // 2 dakika timeout
     await page.goto(instaUrl, {
       waitUntil: "domcontentloaded",
-      timeout: 60000,
+      timeout: 120000,
     });
-
-    // Video veya resim elementi bekle
-    await page.waitForSelector("video, img", { timeout: 15000 });
 
     const mediaUrl = await page.evaluate(() => {
       const videoEl = document.querySelector("video");
@@ -48,34 +44,25 @@ async function fetchInstagramMedia(instaUrl) {
 }
 
 // API endpoint
-app.get("/api/instagram", async (req, res) => {
+app.get("/api/insta", async (req, res) => {
   const { url } = req.query;
   if (!url) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Instagram URL gerekli" });
+    return res.status(400).json({ error: "URL parametresi gerekli ?url=" });
   }
 
-  try {
-    const mediaUrl = await fetchInstagramMedia(url);
-    if (!mediaUrl) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Medya bulunamadı" });
-    }
-
-    res.json({ success: true, mediaUrl });
-  } catch (err) {
-    console.error("API error:", err);
-    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  const mediaUrl = await fetchInstagramMedia(url);
+  if (!mediaUrl) {
+    return res.status(500).json({ error: "Medya alınamadı" });
   }
+
+  res.json({ mediaUrl });
 });
 
-// Basit test sayfası
+// Root test
 app.get("/", (req, res) => {
-  res.send("✅ Instagram scraper çalışıyor. /api/instagram?url=... kullan");
+  res.send("✅ Instagram Fetch API Çalışıyor!");
 });
 
-app.listen(PORT, () =>
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
