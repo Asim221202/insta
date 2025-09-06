@@ -1,36 +1,52 @@
-const puppeteer = require('puppeteer');
+const express = require('express');
+const chromium = require('chromium');
+const puppeteer = require('puppeteer-core');
+
+const app = express();
+app.use(express.json());
 
 async function fetchInstagramMedia(instaUrl) {
-    let browser;
-    try {
-        browser = await puppeteer.launch({
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        });
-        const page = await browser.newPage();
-        await page.goto(instaUrl, { waitUntil: 'networkidle2' });
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      executablePath: chromium.path,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: true
+    });
 
-        // Video varsa video URL’sini al
-        const mediaUrl = await page.evaluate(() => {
-            const videoEl = document.querySelector('video');
-            if (videoEl) return videoEl.src;
+    const page = await browser.newPage();
+    await page.goto(instaUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
-            const imgEl = document.querySelector('img');
-            if (imgEl) return imgEl.src;
+    const mediaUrl = await page.evaluate(() => {
+      const videoEl = document.querySelector('video');
+      if (videoEl) return videoEl.src;
+      const imgEl = document.querySelector('img');
+      if (imgEl) return imgEl.src;
+      return null;
+    });
 
-            return null;
-        });
-
-        return mediaUrl;
-    } catch (err) {
-        console.error('Puppeteer Instagram fetch error:', err);
-        return null;
-    } finally {
-        if (browser) await browser.close();
-    }
+    return mediaUrl;
+  } catch (err) {
+    console.error("fetchInstagramMedia error:", err);
+    return null;
+  } finally {
+    if (browser) await browser.close();
+  }
 }
 
-// IIFE ile en üstte await kullanımı
-(async () => {
-    const mediaUrl = await fetchInstagramMedia('https://www.instagram.com/reel/DOEra5KjrK5/');
-    console.log(mediaUrl); // Direkt mp4 URL veya img URL
-})();
+app.post('/api/instagram', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ success: false, message: "No URL provided" });
+
+  const mediaUrl = await fetchInstagramMedia(url);
+  if (!mediaUrl) {
+    return res.status(500).json({ success: false, message: "Failed to fetch media" });
+  }
+
+  res.json({ success: true, mediaUrl });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
