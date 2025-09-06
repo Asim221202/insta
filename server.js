@@ -1,68 +1,57 @@
-const express = require("express");
-const puppeteer = require("puppeteer-core");
-const chromium = require("@sparticuz/chromium"); // Render için optimize edilmiş chromium
+require('dotenv').config();
+const express = require('express');
+const InstagramScraper = require('instagram-media-scraper');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(express.json());
+const port = process.env.PORT || 3000;
 
-async function fetchInstagramMedia(instaUrl) {
-  let browser;
-  try {
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true,
-    });
+// Instagram scraper instance
+const scraper = new InstagramScraper();
 
-    const page = await browser.newPage();
+// POST: /api/instagram  -> { "url": "..." }
+app.post('/api/instagram', async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ success: false, message: 'URL yok' });
 
-    // 2 dakika timeout
-    await page.goto(instaUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: 120000,
-    });
-
-    const mediaUrl = await page.evaluate(() => {
-      const videoEl = document.querySelector("video");
-      if (videoEl) return videoEl.src;
-
-      const imgEl = document.querySelector("img");
-      if (imgEl) return imgEl.src;
-
-      return null;
-    });
-
-    return mediaUrl;
-  } catch (err) {
-    console.error("fetchInstagramMedia error:", err);
-    return null;
-  } finally {
-    if (browser) await browser.close();
-  }
-}
-
-// API endpoint
-app.get("/api/insta", async (req, res) => {
-  const { url } = req.query;
-  if (!url) {
-    return res.status(400).json({ error: "URL parametresi gerekli ?url=" });
-  }
-
-  const mediaUrl = await fetchInstagramMedia(url);
-  if (!mediaUrl) {
-    return res.status(500).json({ error: "Medya alınamadı" });
-  }
-
-  res.json({ mediaUrl });
+    try {
+        const media = await scraper.getMedia(url);
+        res.json({
+            success: true,
+            type: media.type,
+            urls: media.urls,
+            caption: media.caption,
+            author: media.author
+        });
+    } catch (err) {
+        console.error('Instagram fetch error:', err);
+        res.status(500).json({ success: false, message: 'Instagram fetch hatası' });
+    }
 });
 
-// Root test
-app.get("/", (req, res) => {
-  res.send("✅ Instagram Fetch API Çalışıyor!");
+// GET: /api/instagram?url=...
+app.get('/api/instagram', async (req, res) => {
+    const url = req.query.url;
+    if (!url) return res.status(400).json({ success: false, message: 'URL yok' });
+
+    try {
+        const media = await scraper.getMedia(url);
+        res.json({
+            success: true,
+            type: media.type,
+            urls: media.urls,
+            caption: media.caption,
+            author: media.author
+        });
+    } catch (err) {
+        console.error('Instagram fetch error:', err);
+        res.status(500).json({ success: false, message: 'Instagram fetch hatası' });
+    }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+// Test route
+app.get('/', (req, res) => {
+    res.send('Instagram Scraper API çalışıyor ✅');
 });
+
+app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
