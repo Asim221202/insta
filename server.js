@@ -34,16 +34,19 @@ async function fetchInstagramMedia(instaUrl) {
   }
 }
 
-app.post('/api/instagram', async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ success: false, message: "No URL provided" });
+app.get('/api/instagram', async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ success: false, message: "URL gerekli" });
 
-  const mediaUrl = await fetchInstagramMedia(url);
-  if (!mediaUrl) {
-    return res.status(500).json({ success: false, message: "Failed to fetch media" });
+  try {
+    const mediaUrl = await fetchInstagramMedia(url);
+    if (!mediaUrl) return res.status(404).json({ success: false, message: "Medya bulunamadı" });
+
+    res.json({ success: true, mediaUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
-
-  res.json({ success: true, mediaUrl });
 });
 
 const PORT = process.env.PORT || 3000;
